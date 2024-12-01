@@ -26,7 +26,7 @@ struct Args {
     #[arg(value_enum)]
     day: Days,
 
-    #[arg(short, long, default_value = "./inputs/")]
+    #[arg(short, long, default_value = "./input/")]
     input: PathBuf
 }
 
@@ -35,18 +35,20 @@ fn main() -> Result<()> {
 
     let inputfilepath = {
         if args.input.is_dir() {
-            args.input.join(args.day.to_string())
+            args.input.join(args.day.to_string().to_lowercase()).with_extension("txt")
         } else {
             args.input
         }
     };
+
+    println!("using input from {:?}", &inputfilepath);
 
     let inputfile = File::open(&inputfilepath)?;
 
     let inputstr = std::io::read_to_string(&inputfile)?;
 
     match args.day {
-        day1 => crate::day1::Day1::run(&inputstr)
+        Days::Day1 => crate::day1::Day1::run(&inputstr)
     }
 
 }
