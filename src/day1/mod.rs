@@ -10,39 +10,40 @@ use nom::{
     combinator::map_res,
     error::Error,
     multi::separated_list1,
-    sequence::separated_pair,
+    sequence::{separated_pair, terminated},
     Finish, IResult,
 };
 
 impl AoC for Day1 {
-    fn run(input: &str) -> anyhow::Result<()> {
+    fn run(input: &str) -> anyhow::Result<AoCResult> {
         let parsed: Day1 = input.parse()?;
 
-        println!("part a: {}", parsed.total_distance());
-        println!("part b: {}", parsed.similarity_score());
-        Ok(())
+        Ok(AoCResult {
+            part_a : Some(parsed.total_distance()),
+            part_b : Some(parsed.similarity_score())
+        })
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Day1 {
-    left: Vec<u32>,
-    right: Vec<u32>,
+    left: Vec<usize>,
+    right: Vec<usize>,
 }
 
 impl Day1 {
-    fn total_distance(&self) -> u32 {
+    fn total_distance(&self) -> usize {
         zip(sorted(self.left.iter()), sorted(self.right.iter()))
         .map(|(x, y)| {
                 x.abs_diff(*y)
             }).sum()
     }
 
-    fn similarity_score(&self) -> u32 {
+    fn similarity_score(&self) -> usize {
         let counts = self.right.iter().counts();
         self.left.iter().map(|x| {
             match counts.get(x) {
-                Some(val) => x * (*val as u32),
+                Some(val) => x * *val,
                 None => 0
             }
         }).sum()
@@ -54,7 +55,8 @@ impl FromStr for Day1 {
 
     fn from_str(s: &str) -> anyhow::Result<Day1> {
         match parse_two_lists(s).finish() {
-            Ok((_remaining, parta)) => Ok(parta),
+            Ok(("", parsed)) => Ok(parsed),
+            Ok((rest, parsed)) => Err(anyhow::anyhow!("Successful parsed {:?}, but input was not fully consumed! ({:?})", parsed, rest)),
             Err(Error { input, code }) => Err(Error {
                 input: input.to_string(),
                 code,
@@ -63,13 +65,13 @@ impl FromStr for Day1 {
     }
 }
 
-fn parseu32(input: &str) -> IResult<&str, u32> {
+fn parseu32(input: &str) -> IResult<&str, usize> {
     map_res(digit1, str::parse)(input)
 }
 
 fn parse_two_lists(input: &str) -> IResult<&str, Day1> {
     map_res(
-        separated_list1(newline, separated_pair(parseu32, space1, parseu32)),
+        terminated(separated_list1(newline, separated_pair(parseu32, space1, parseu32)), newline),
         |vec| -> anyhow::Result<Day1> {
             let (left, right) = vec.into_iter().unzip();
             Ok(Day1 { left, right })
@@ -90,7 +92,7 @@ mod tests {
         2   5\n\
         1   3\n\
         3   9\n\
-        3   3\
+        3   3\n\
         "
     }
 

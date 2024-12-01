@@ -6,18 +6,40 @@ use std::fs::File;
 use anyhow::Result;
 
 mod prelude {
+    pub struct AoCResult {
+        pub part_a : Option<usize>,
+        pub part_b : Option<usize>
+    }
+
     pub trait AoC {
-        fn run(input: &str) -> anyhow::Result<()>;
+        fn run(input: &str) -> anyhow::Result<AoCResult>;
     }
 }
 
+use crate::prelude::AoC;
 
 mod day1;
-use crate::prelude::AoC;
 
 #[derive(ValueEnum, Clone, Debug, Display)]
 enum Days {
     Day1
+}
+
+fn run_day(day: Days, input: &str) -> Result<()> {
+    let result = match day {
+        Days::Day1 => crate::day1::Day1::run(input)
+    }?;
+
+    if let Some(val) = result.part_a {
+        println!("part a: {}", val);
+    }
+
+    if let Some(val) = result.part_b {
+        println!("part b: {}", val);
+    }
+
+    Ok(())
+
 }
 
 #[derive(Parser, Debug)]
@@ -41,14 +63,10 @@ fn main() -> Result<()> {
         }
     };
 
-    println!("using input from {:?}", &inputfilepath);
-
     let inputfile = File::open(&inputfilepath)?;
 
     let inputstr = std::io::read_to_string(&inputfile)?;
 
-    match args.day {
-        Days::Day1 => crate::day1::Day1::run(&inputstr)
-    }
+    run_day(args.day, &inputstr)
 
 }
