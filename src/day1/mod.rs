@@ -14,9 +14,9 @@ use nom::{
     Finish, IResult,
 };
 
-impl AoC for Day1 {
+impl AoC for Day {
     fn run(input: &str) -> anyhow::Result<AoCResult> {
-        let parsed: Day1 = input.parse()?;
+        let parsed: Day = input.parse()?;
 
         Ok(AoCResult {
             part_a : Some(parsed.total_distance()),
@@ -26,12 +26,12 @@ impl AoC for Day1 {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Day1 {
+pub struct Day {
     left: Vec<usize>,
     right: Vec<usize>,
 }
 
-impl Day1 {
+impl Day {
     fn total_distance(&self) -> usize {
         zip(sorted(self.left.iter()), sorted(self.right.iter()))
         .map(|(x, y)| {
@@ -50,10 +50,10 @@ impl Day1 {
     }
 }
 
-impl FromStr for Day1 {
+impl FromStr for Day {
     type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> anyhow::Result<Day1> {
+    fn from_str(s: &str) -> anyhow::Result<Day> {
         match parse_two_lists(s).finish() {
             Ok(("", parsed)) => Ok(parsed),
             Ok((rest, parsed)) => Err(anyhow::anyhow!("Successful parsed {:?}, but input was not fully consumed! ({:?})", parsed, rest)),
@@ -69,12 +69,12 @@ fn parseu32(input: &str) -> IResult<&str, usize> {
     map_res(digit1, str::parse)(input)
 }
 
-fn parse_two_lists(input: &str) -> IResult<&str, Day1> {
+fn parse_two_lists(input: &str) -> IResult<&str, Day> {
     map_res(
         terminated(separated_list1(newline, separated_pair(parseu32, space1, parseu32)), newline),
-        |vec| -> anyhow::Result<Day1> {
+        |vec| -> anyhow::Result<Day> {
             let (left, right) = vec.into_iter().unzip();
-            Ok(Day1 { left, right })
+            Ok(Day { left, right })
         },
     )(input)
 }
@@ -97,26 +97,26 @@ mod tests {
     }
 
     #[fixture]
-    fn example_parsed() -> Day1 {
-        Day1 {
+    fn example_parsed() -> Day {
+        Day {
             left: [3, 4, 2, 1, 3, 3].into(),
             right: [4, 3, 5, 3, 9, 3].into(),
         }
     }
 
     #[rstest]
-    fn parse_example_a(example: &'static str, example_parsed: Day1) {
-        let result: Day1 = example.parse().unwrap();
+    fn parse_example_a(example: &'static str, example_parsed: Day) {
+        let result: Day = example.parse().unwrap();
         assert_eq!(result, example_parsed)
     }
 
     #[rstest]
-    fn total_distance_a(example_parsed: Day1) {
+    fn total_distance_a(example_parsed: Day) {
         assert_eq!(example_parsed.total_distance(), 11)
     }
 
     #[rstest]
-    fn test_similarity_score(example_parsed: Day1) {
+    fn test_similarity_score(example_parsed: Day) {
         assert_eq!(example_parsed.similarity_score(), 31)
     }
 }

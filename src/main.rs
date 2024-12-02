@@ -27,7 +27,7 @@ enum Days {
 
 fn run_day(day: Days, input: &str) -> Result<()> {
     let result = match day {
-        Days::Day1 => crate::day1::Day1::run(input)
+        Days::Day1 => crate::day1::Day::run(input)
     }?;
 
     if let Some(val) = result.part_a {
