@@ -89,26 +89,12 @@ impl Report {
         self.0.iter().tuple_windows().map(|(prev, next)| *next as i32 - *prev as i32)
     }
 
+    fn in_range(&self, range: std::ops::Range<i32>) -> bool {
+        self.adjacency().all(|x| range.contains(&x))
+    }
 
     fn is_safe(&self) -> bool {
-        dbg!(&self);
-        let mut it = self.adjacency();
-        let mut cur = it.next().unwrap().cmp(&0);
-
-        if cur == Ordering::Equal {
-            return false;
-        }
-
-        for val in it {
-            dbg!(&cur, &val, &val.abs());
-            let cmp = val.cmp(&0); 
-            if (cmp != cur) || (val.abs() > 3) {
-                return false;
-            }
-            cur = cmp;
-        }
-
-        true
+        self.in_range(-3..0) || self.in_range(1..4)
     }
 }
 
