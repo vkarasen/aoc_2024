@@ -6,6 +6,7 @@ use nom::{
     bytes::complete::{tag, take},
     character::complete::{char, digit1},
     combinator::{map_res, not, peek},
+    branch::alt,
     error::Error,
     multi::{many1, many0},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
@@ -18,7 +19,7 @@ impl AoC for Day {
 
         Ok(AoCResult {
             part_a: Some(parsed.part_a()),
-            part_b: None,
+            part_b: Some(parsed.part_b())
         })
     }
 }
@@ -31,19 +32,31 @@ pub struct Day {
 #[derive(Debug, PartialEq, Eq)]
 enum Instruction {
     Mul { left: usize, right: usize },
-}
-
-impl Instruction {
-    fn mul(&self) -> usize {
-        match self {
-            Instruction::Mul { left, right } => left * right,
-        }
-    }
+    Do,
+    Dont
 }
 
 impl Day {
     fn part_a(&self) -> usize {
-        self.instr.iter().map(|i| i.mul()).sum()
+        self.mul(false)
+    }
+
+    fn part_b(&self) -> usize {
+        self.mul(true)
+    }
+
+    fn mul(&self, use_enable: bool) -> usize {
+        let mut enable: bool = true;
+        let mut acc = 0;
+        for ins in &self.instr {
+            match ins {
+                Instruction::Mul{left, right} if enable => { acc += left * right; },
+                Instruction::Do if use_enable => { enable = true; },
+                Instruction::Dont if use_enable => { enable = false; },
+                _ => {}
+            }
+        }
+        acc
     }
 }
 
@@ -82,14 +95,33 @@ fn parse_mul(input: &str) -> IResult<&str, Instruction> {
     )(input)
 }
 
+fn parse_do(input: &str) -> IResult<&str, Instruction> {
+    map_res(
+        tag("do()"),
+        |_| -> anyhow::Result<Instruction> { Ok(Instruction::Do) }
+    )(input)
+    }
+
+fn parse_dont(input: &str) -> IResult<&str, Instruction> {
+    map_res(
+        tag("don't()"),
+        |_| -> anyhow::Result<Instruction> { Ok(Instruction::Dont) }
+    )(input)
+}
+
+fn parse_instruction(input: &str) -> IResult<&str, Instruction> {
+    alt((parse_mul, parse_do, parse_dont))(input)
+}
+
+
 fn parse_garbage(input: &str) -> IResult<&str, Vec<((), &str)>> {
-    many0(pair(not(peek(parse_mul)), take(1usize)))(input)
+    many0(pair(not(peek(parse_instruction)), take(1usize)))(input)
 }
 
 fn parse_day(input: &str) -> IResult<&str, Day> {
     map_res(
         terminated(
-            many1(preceded(parse_garbage, parse_mul)),
+            many1(preceded(parse_garbage, parse_instruction)),
             parse_garbage
         ),
         |instr| -> anyhow::Result<Day> { Ok(Day { instr }) },
@@ -130,5 +162,32 @@ mod tests {
     #[rstest]
     fn test_part_a(example_parsed: Day) {
         assert_eq!(example_parsed.part_a(), 161)
+    }
+
+    #[fixture]
+    fn example_b() -> &'static str {
+        "\
+        xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))\n\
+        "
+    }
+
+    #[fixture]
+    fn example_b_parsed() -> Day {
+        Day {
+            instr: [
+                Instruction::Mul { left: 2, right: 4 },
+                Instruction::Dont,
+                Instruction::Mul { left: 5, right: 5 },
+                Instruction::Mul { left: 11, right: 8 },
+                Instruction::Do,
+                Instruction::Mul { left: 8, right: 5 },
+            ]
+            .into(),
+        }
+    }
+
+    #[rstest]
+    fn test_part_b(example_b_parsed: Day) {
+        assert_eq!(example_b_parsed.part_b(), 48)
     }
 }
