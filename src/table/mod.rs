@@ -23,7 +23,7 @@ pub fn parse_char_table(input: &str) -> anyhow::Result<CharTable> {
     Ok(CharTable::from_shape_vec((height, width), arr)?)
 }
 
-fn into_shape(idx: TableIdx) -> Ix2 {
+pub fn into_shape(idx: TableIdx) -> Ix2 {
     let (a, b) = idx.yx().into_tuple();
     Ix2(a, b)
 }
@@ -35,7 +35,7 @@ pub fn into_idx(shape: Ix2) -> TableIdx {
     }
 }
 
-fn shift(idx: TableIdx, step: TableDir) -> TableIdx {
+pub fn shift(idx: TableIdx, step: TableDir) -> TableIdx {
     (idx.as_::<isize>() + step).as_()
 }
 

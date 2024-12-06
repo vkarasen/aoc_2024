@@ -5,7 +5,9 @@ use crate::table::{
     parse_char_table,
     TableIdx, TableDir,
     cast_ray,
-    into_idx
+    into_idx,
+    into_shape,
+    shift
 };
 
 use ndarray::Ix2;
@@ -21,7 +23,7 @@ impl AoC for Day {
 
         Ok(AoCResult {
             part_a : Some(parsed.part_a()),
-            part_b : None
+            part_b : Some(parsed.part_b())
         })
     }
 }
@@ -43,9 +45,15 @@ const ALL_DIRS: [TableDir; 8] = [
     TableDir::new(-1, 0),
 ];
 
+const X_CORNERS: [TableDir; 4] = [
+    TableDir::new(-1, -1),
+    TableDir::new(1, -1),
+    TableDir::new(1, 1),
+    TableDir::new(-1, 1),
+];
+
 impl Day {
     fn is_xmas(&self, origin: TableIdx, dir: TableDir) -> bool {
-        //dbg!(&origin, &dir);
         let mut ray = cast_ray(&self.table, origin, dir).cloned().take(4);
 
         for c in XMAS.chars() {
@@ -60,11 +68,27 @@ impl Day {
         true
     }
 
+    fn is_x_mas(&self, origin: TableIdx) -> bool {
+        if let Some('A') = self.table.get(into_shape(origin)) {
+            if let Some(x) = X_CORNERS.iter().map(|c| self.table.get(into_shape(shift(origin, *c)))).collect::<Option<String>>() {
+                return ["MSSM", "MMSS", "SMMS", "SSMM"].contains(&x.as_str())
+            }
+        }
+        false
+    }
+
     fn part_a(&self) -> usize {
         let (height, width) = self.table.dim();
         iproduct!(0..width, 0..height).flat_map(|(x, y)| {
             std::iter::repeat(into_idx(Ix2(x, y))).zip(ALL_DIRS.iter())
         }).map(|(origin, dir)| self.is_xmas(origin, *dir)).filter(|x| *x).count()
+    }
+
+    fn part_b(&self) -> usize {
+        let (height, width) = self.table.dim();
+        iproduct!(0..width, 0..height).map(|(x, y)| {
+            self.is_x_mas(into_idx(Ix2(x, y)))
+        }).filter(|x| *x).count()
     }
 }
 
@@ -140,5 +164,16 @@ mod tests {
     #[rstest]
     fn test_part_a(example_parsed: Day) {
         assert_eq!(example_parsed.part_a(), 18)
+    }
+
+    #[rstest]
+    #[case(TableIdx::new(2, 1))]
+    fn test_x_mas(example_parsed: Day, #[case] origin: TableIdx) {
+        assert!(example_parsed.is_x_mas(origin))
+    }
+
+    #[rstest]
+    fn test_part_b(example_parsed: Day) {
+        assert_eq!(example_parsed.part_b(), 9)
     }
 }
