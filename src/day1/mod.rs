@@ -6,7 +6,7 @@ use itertools::{sorted, Itertools};
 use std::iter::zip;
 
 use nom::{
-    character::complete::{digit1, newline, space1},
+    character::complete::{newline, space1},
     combinator::map_res,
     error::Error,
     multi::separated_list1,
@@ -65,13 +65,9 @@ impl FromStr for Day {
     }
 }
 
-fn parseu32(input: &str) -> IResult<&str, usize> {
-    map_res(digit1, str::parse)(input)
-}
-
 fn parse_two_lists(input: &str) -> IResult<&str, Day> {
     map_res(
-        terminated(separated_list1(newline, separated_pair(parseu32, space1, parseu32)), newline),
+        terminated(separated_list1(newline, separated_pair(parse_usize, space1, parse_usize)), newline),
         |vec| -> anyhow::Result<Day> {
             let (left, right) = vec.into_iter().unzip();
             Ok(Day { left, right })

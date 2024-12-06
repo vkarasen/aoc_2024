@@ -6,6 +6,12 @@ use std::fs::File;
 use anyhow::Result;
 
 mod prelude {
+    use nom::{
+        character::complete::digit1,
+        combinator::map_res,
+        IResult,
+    };
+
     pub struct AoCResult {
         pub part_a : Option<usize>,
         pub part_b : Option<usize>
@@ -13,6 +19,10 @@ mod prelude {
 
     pub trait AoC {
         fn run(input: &str) -> anyhow::Result<AoCResult>;
+    }
+
+    pub fn parse_usize(input: &str) -> IResult<&str, usize> {
+        map_res(digit1, str::parse)(input)
     }
 }
 
@@ -23,13 +33,15 @@ mod day1;
 mod day2;
 mod day3;
 mod day4;
+mod day5;
 
 #[derive(ValueEnum, Clone, Debug, Display)]
 enum Days {
     Day1,
     Day2,
     Day3,
-    Day4
+    Day4,
+    Day5,
 }
 
 fn run_day(day: Days, input: &str) -> Result<()> {
@@ -37,7 +49,8 @@ fn run_day(day: Days, input: &str) -> Result<()> {
         Days::Day1 => crate::day1::Day::run(input),
         Days::Day2 => crate::day2::Day::run(input),
         Days::Day3 => crate::day3::Day::run(input),
-        Days::Day4 => crate::day4::Day::run(input)
+        Days::Day4 => crate::day4::Day::run(input),
+        Days::Day5 => crate::day5::Day::run(input),
     }?;
 
     if let Some(val) = result.part_a {

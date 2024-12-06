@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use nom::{
     bytes::complete::{tag, take},
-    character::complete::{char, digit1},
+    character::complete::char,
     combinator::{map_res, not, peek},
     branch::alt,
     error::Error,
@@ -78,10 +78,6 @@ impl FromStr for Day {
             .into()),
         }
     }
-}
-
-fn parse_usize(input: &str) -> IResult<&str, usize> {
-    map_res(digit1, str::parse)(input)
 }
 
 fn parse_mul(input: &str) -> IResult<&str, Instruction> {
