@@ -62,12 +62,32 @@ impl <'a, A> Iterator for Ray<'a, A> {
     }
 }
 
-pub fn cast_ray<'a, A>(table: &'a Array2<A>, origin: TableIdx, direction: TableDir) -> Ray<A> {
+pub fn cast_ray<A>(table: &Array2<A>, origin: TableIdx, direction: TableDir) -> Ray<A> {
     Ray {
         table,
         coord: origin,
         direction,
         cur : None
+    }
+}
+
+pub struct PPCharTable<'a>(&'a CharTable);
+
+impl std::fmt::Debug for PPCharTable<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut ret = String::new();
+        ret.push('\n');
+        for row in self.0.rows() {
+            ret.extend(row);
+            ret.push('\n');
+        }
+        write!(f, "{}", &ret)
+    }
+}
+
+impl <'a>From<&'a CharTable> for PPCharTable<'a> {
+    fn from(table: &'a CharTable) -> Self {
+        Self(table)
     }
 }
  
