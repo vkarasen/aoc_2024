@@ -6,7 +6,7 @@ use crate::table::{into_idx, into_shape, parse_char_table, shift, CharTable, Tab
 
 use ndarray::Ix2;
 
-use itertools::{Itertools, iproduct};
+use itertools::Itertools;
 
 use std::str::FromStr;
 
@@ -31,9 +31,10 @@ pub struct Day {
 
 impl Day {
     fn drop_boulder(&self, pos: TableIdx) -> Option<Self> {
-        if let Some('.') = self.table.get(into_shape(pos)) {
+        let shape = into_shape(pos);
+        if let Some('.') = self.table.get(shape) {
             let mut ret = self.clone();
-            ret.table[into_shape(pos)] = '#';
+            ret.table[shape] = '#';
             return Some(ret);
         }
         None
