@@ -42,6 +42,7 @@
 			  else
 			  	echo "Creating file $dayfile"
 			  	cp templates/mod.rs "$dayfile"
+			  	git add "$dayfile"
 			  fi
 			  mkdir -p input
 			  inputfile=$projdir/input/day''${day}.txt
