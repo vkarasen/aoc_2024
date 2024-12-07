@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use nom::{
     bytes::complete::tag,
-    character::complete::{digit1, newline, space1},
+    character::complete::newline,
     combinator::map_res,
     error::Error,
     multi::separated_list1,
@@ -20,7 +20,7 @@ impl AoC for Day {
 
         Ok(AoCResult {
             part_a: Some(parsed.part_a()),
-            part_b: None,
+            part_b: Some(parsed.part_b()),
         })
     }
 }
@@ -37,11 +37,46 @@ fn in_correct_order(update: &Update, rules: &[PageOrderRule]) -> bool {
     }).any(|rule| rules.contains(&rule)) 
 }
 
+fn first_violating_idc(update: &Update, rules: &[PageOrderRule]) -> Option<(usize, usize)> {
+    for rule in update.0.iter().combinations(2).map(|x| {
+        PageOrderRule {first: *x[1], second: *x[0]}
+    }) {
+        if rules.contains(&rule) {
+            let left = update.0.iter().position(|&r| r == rule.first).unwrap();
+            let right = update.0.iter().position(|&r| r == rule.second).unwrap();
+            return Some((left, right));
+        }
+    }
+    None
+}
+
+fn corrected_order(update: &Update, rules: &[PageOrderRule]) -> Update {
+    let relevant_rules: Vec<PageOrderRule> = rules.iter().cloned().filter(|r| {
+        update.0.contains(&r.first) && update.0.contains(&r.second)
+    }).collect();
+    //dbg!(&update, &relevant_rules);
+    let mut retval = update.clone();
+    while let Some((i1, i2)) = first_violating_idc(&retval, &relevant_rules) {
+        retval.0.swap(i1, i2);
+    }
+    retval
+}
+
 impl Day {
+    #[cfg(test)]
     fn correctly_ordered(&self) -> impl Iterator<Item = bool> + '_ {
         self.updates
             .iter()
             .map(|u| in_correct_order(u, &self.rules))
+    }
+
+    fn correct(&self) -> impl Iterator<Item=Update> + '_ {
+        self.updates.iter().filter_map(|u| {
+            if ! in_correct_order(u, &self.rules) {
+                return Some(corrected_order(u, &self.rules));
+            }
+            None
+        })
     }
 
     fn part_a(&self) -> usize {
@@ -51,6 +86,10 @@ impl Day {
             }
             None
         }).sum()
+    }
+
+    fn part_b(&self) -> usize {
+        self.correct().map(|u| { u.0[u.0.len()/2] }).sum()
     }
 }
 
@@ -85,7 +124,7 @@ fn parse_day(input: &str) -> IResult<&str, Day> {
     )(input)
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct PageOrderRule {
     first: usize,
     second: usize,
@@ -98,7 +137,7 @@ fn parse_page_order_rule(input: &str) -> IResult<&str, PageOrderRule> {
     )(input)
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Update(Vec<usize>);
 
 fn parse_update(input: &str) -> IResult<&str, Update> {
@@ -264,5 +303,20 @@ mod tests {
     #[rstest]
     fn test_part_a(example_parsed: Day) {
         assert_eq!(example_parsed.part_a(), 143)
+    }
+
+    #[rstest]
+    fn test_correct(example_parsed: Day) {
+        let corrected: Vec<Update> = example_parsed.correct().collect();
+        assert_eq!(corrected, [
+            Update([97,75,47,61,53].into()),
+            Update([61,29,13].into()),
+            Update([97,75,47,29,13].into()),
+        ]);
+        
+    }
+    #[rstest]
+    fn test_part_b(example_parsed: Day) {
+        assert_eq!(example_parsed.part_b(), 123)
     }
 }
