@@ -2,56 +2,86 @@ use crate::prelude::*;
 
 use anyhow::anyhow;
 
-use crate::table::{
-    CharTable,
-    parse_char_table,
-    TableIdx, TableDir,
-    cast_ray,
-    into_idx,
-    into_shape,
-    shift
-};
+use crate::table::{into_idx, into_shape, parse_char_table, shift, CharTable, TableDir, TableIdx};
 
 use ndarray::Ix2;
 
-use itertools::Itertools;
-
-use vek::Mat2;
+use itertools::{Itertools, iproduct};
 
 use std::str::FromStr;
+
+use std::collections::HashSet;
 
 impl AoC for Day {
     fn run(input: &str) -> anyhow::Result<AoCResult> {
         let parsed: Day = input.parse()?;
 
         Ok(AoCResult {
-            part_a : Some(parsed.part_a()),
-            part_b : None
+            part_a: Some(parsed.part_a()),
+            part_b: Some(parsed.part_b()),
         })
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Day {
     table: CharTable,
-    start: TableIdx
+    start: TableIdx,
 }
 
 impl Day {
+    fn drop_boulder(&self, pos: TableIdx) -> Option<Self> {
+        if let Some('.') = self.table.get(into_shape(pos)) {
+            let mut ret = self.clone();
+            ret.table[into_shape(pos)] = '#';
+            return Some(ret);
+        }
+        None
+    }
 
     fn walk(&self) -> GuardPath {
         GuardPath {
             table: &self.table,
-            pos: self.start,
-            dir: TableDir::new(0, -1),
+            guard: Guard {
+                pos: self.start,
+                dir: TableDir::new(0, -1),
+            },
         }
     }
 
+    fn is_stuck(&self) -> bool {
+        let mut trace: HashSet<Guard> = HashSet::new();
+        for guard in self.walk() {
+            if ! trace.insert(guard) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn unique_guard_pos(&self) -> impl Iterator<Item = TableIdx> + '_ {
+        self.walk().map(|x| x.pos).unique()
+    }
+
     fn part_a(&self) -> usize {
-        self.walk().unique().count()
+        self.unique_guard_pos().count()
+    }
+
+    fn all_paradox_boulders(&self) -> impl Iterator<Item = TableIdx> + '_ {
+        self.unique_guard_pos().filter(|dropped| {
+            if let Some(day) = self.drop_boulder(*dropped) {
+                if day.is_stuck() {
+                    return true;
+                }
+            }
+            false
+        })
+    }
+
+    fn part_b(&self) -> usize {
+        self.all_paradox_boulders().count()
     }
 }
-
 
 impl FromStr for Day {
     type Err = anyhow::Error;
@@ -59,41 +89,78 @@ impl FromStr for Day {
     fn from_str(s: &str) -> anyhow::Result<Day> {
         let table = parse_char_table(s)?;
 
-        let ((row, col), _) = table.indexed_iter().find_or_last(|((_row, _col), c)|  *c == &'^').ok_or(anyhow!("couldn't find start position"))?;
+        let ((row, col), _) = table
+            .indexed_iter()
+            .find_or_last(|((_row, _col), c)| *c == &'^')
+            .ok_or(anyhow!("couldn't find start position"))?;
 
-        Ok(Day{ table, start: into_idx(Ix2(row, col))})
+        Ok(Day {
+            table,
+            start: into_idx(Ix2(row, col)),
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+struct Guard {
+    pos: TableIdx,
+    dir: TableDir,
+}
+
+impl Guard {
+    fn turned(&self) -> TableDir {
+        self.dir.as_().rotated_z(std::f32::consts::PI * 0.5).as_()
+    }
+
+    fn turn(&mut self) {
+        self.dir = self.turned();
+    }
+
+    fn step(&mut self) {
+        self.pos = self.look()
+    }
+
+    fn look(&self) -> TableIdx {
+        shift(self.pos, self.dir)
     }
 }
 
 struct GuardPath<'a> {
     table: &'a CharTable,
-    pos: TableIdx,
-    dir: TableDir,
+    guard: Guard,
 }
 
-impl <'a> Iterator for GuardPath<'a> {
-    type Item = TableIdx;
+impl GuardPath<'_> {
+    fn get(&self, pos: TableIdx) -> Option<&char> {
+        self.table.get(into_shape(pos))
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn get_guard_pos(&self) -> Option<&char> {
+        self.get(self.guard.pos)
+    }
 
-        self.table.get(into_shape(self.pos))?;
-
-        let retval = self.pos;
-
-        self.pos = shift(retval, self.dir);
-
-        if let Some('#') = self.table.get(into_shape(self.pos)) {
-            self.dir = self.dir.as_().rotated_z(std::f32::consts::PI*0.5).as_();
-            self.pos = shift(retval, self.dir);
-        }
-
-        Some(retval)
-
+    fn blocked(&self) -> bool {
+        self.get(self.guard.look()) == Some(&'#')
     }
 }
 
+impl<'a> Iterator for GuardPath<'a> {
+    type Item = Guard;
 
+    fn next(&mut self) -> Option<Self::Item> {
+        self.get_guard_pos()?;
 
+        let retval = self.guard;
+
+        if self.blocked() {
+            self.guard.turn();
+        }
+
+        self.guard.step();
+
+        Some(retval)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -131,9 +198,9 @@ mod tests {
                 ['.', '#', '.', '.', '^', '.', '.', '.', '.', '.'],
                 ['.', '.', '.', '.', '.', '.', '.', '.', '#', '.'],
                 ['#', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
-                ['.', '.', '.', '.', '.', '.', '#', '.', '.', '.']
+                ['.', '.', '.', '.', '.', '.', '#', '.', '.', '.'],
             ]),
-            start: TableIdx::new(4, 6)
+            start: TableIdx::new(4, 6),
         }
     }
 
@@ -145,22 +212,66 @@ mod tests {
 
     #[rstest]
     fn trace_walk(example_parsed: Day) {
-        let path : Vec<TableIdx> = example_parsed.walk().take(7).collect();
+        let path: Vec<Guard> = example_parsed.walk().take(7).collect();
         assert_eq!(
             path,
             vec![
-                TableIdx::new(4, 6),
-                TableIdx::new(4, 5),
-                TableIdx::new(4, 4),
-                TableIdx::new(4, 3),
-                TableIdx::new(4, 2),
-                TableIdx::new(4, 1),
-                TableIdx::new(5, 1),
-            ])
+                Guard {
+                    pos: TableIdx::new(4, 6),
+                    dir: TableDir::new(0, -1)
+                },
+                Guard {
+                    pos: TableIdx::new(4, 5),
+                    dir: TableDir::new(0, -1)
+                },
+                Guard {
+                    pos: TableIdx::new(4, 4),
+                    dir: TableDir::new(0, -1)
+                },
+                Guard {
+                    pos: TableIdx::new(4, 3),
+                    dir: TableDir::new(0, -1)
+                },
+                Guard {
+                    pos: TableIdx::new(4, 2),
+                    dir: TableDir::new(0, -1)
+                },
+                Guard {
+                    pos: TableIdx::new(4, 1),
+                    dir: TableDir::new(0, -1)
+                },
+                Guard {
+                    pos: TableIdx::new(5, 1),
+                    dir: TableDir::new(1, 0)
+                },
+            ]
+        )
     }
 
     #[rstest]
     fn test_part_a(example_parsed: Day) {
         assert_eq!(example_parsed.part_a(), 41)
+    }
+
+    #[rstest]
+    fn test_all_obstacles(example_parsed: Day) {
+        let obstacles: HashSet<TableIdx> = example_parsed.all_paradox_boulders().collect();
+        assert_eq!(
+            obstacles,
+            [
+                TableIdx::new(3, 6),
+                TableIdx::new(6, 7),
+                TableIdx::new(7, 7),
+                TableIdx::new(1, 8),
+                TableIdx::new(3, 8),
+                TableIdx::new(7, 9)
+            ]
+            .into()
+        )
+    }
+
+    #[rstest]
+    fn test_part_b(example_parsed: Day) {
+        assert_eq!(example_parsed.part_b(), 6)
     }
 }
