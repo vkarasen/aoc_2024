@@ -35,6 +35,7 @@ mod day3;
 mod day4;
 mod day5;
 mod day6;
+mod day7;
 
 #[derive(ValueEnum, Clone, Debug, Display)]
 enum Days {
@@ -44,6 +45,7 @@ enum Days {
     Day4,
     Day5,
     Day6,
+    Day7,
 }
 
 fn run_day(day: Days, input: &str) -> Result<()> {
@@ -54,6 +56,7 @@ fn run_day(day: Days, input: &str) -> Result<()> {
         Days::Day4 => crate::day4::Day::run(input),
         Days::Day5 => crate::day5::Day::run(input),
         Days::Day6 => crate::day6::Day::run(input),
+        Days::Day7 => crate::day7::Day::run(input),
     }?;
 
     if let Some(val) = result.part_a {
