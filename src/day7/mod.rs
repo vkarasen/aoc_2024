@@ -20,7 +20,7 @@ impl AoC for Day {
 
         Ok(AoCResult {
             part_a: Some(parsed.part_a()),
-            part_b: None,
+            part_b: Some(parsed.part_b()),
         })
     }
 }
@@ -32,13 +32,21 @@ pub struct Day {
 
 impl Day {
     fn part_a(&self) -> usize {
+        self.evaluates_with(&["*", "+"]).sum()
+    }
+
+    fn part_b(&self) -> usize {
+        self.evaluates_with(&["*", "+", "||"]).sum()
+    }
+
+    fn evaluates_with<'a>(&'a self, ops: &'a [&'static str]) -> impl Iterator<Item=usize> + '_ {
         self.entries.iter().filter_map(|e| {
-            if e.evaluates() {
+            if e.evaluates(ops) {
                 Some(e.left)
             } else {
                 None
             }
-        }).sum()
+        })
     }
 }
 
@@ -76,14 +84,19 @@ struct Entry {
 }
 
 impl Entry {
-    fn evaluates(&self) -> bool {
+    fn evaluates(&self, ops: &[&'static str]) -> bool {
         let comblen = self.right.len() - 1;
-        for ops in repeat_n(['*', '+'].iter(), comblen).multi_cartesian_product() {
+        for ops in repeat_n(ops.iter(), comblen).multi_cartesian_product() {
             let mut acc = self.right[0];
             for (op, val) in ops.into_iter().zip(self.right.iter().skip(1)) {
-                match op {
-                    '+' => { acc += val; },
-                    '*' => { acc *= val; },
+                match *op {
+                    "+" => { acc += val; },
+                    "*" => { acc *= val; },
+                    "||" => { 
+                        let numdigits = val.checked_ilog10().unwrap_or(0) + 1;
+                        let acc_shifted = acc * (10_i32.pow(numdigits)) as usize;
+                        acc = acc_shifted + val;
+                    },
                     _ => unreachable!()
                 }
                 if acc > self.left {
@@ -182,5 +195,10 @@ mod tests {
     #[rstest]
     fn test_part_a(example_parsed: Day) {
         assert_eq!(example_parsed.part_a(), 3749)
+    }
+
+    #[rstest]
+    fn test_part_b(example_parsed: Day) {
+        assert_eq!(example_parsed.part_b(), 11387)
     }
 }
