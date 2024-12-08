@@ -44,19 +44,20 @@ pub struct Ray<'a, A> {
     table: &'a Array2<A>,
     coord: TableIdx,
     direction: TableDir,
-    cur: Option<&'a A>
 }
 
 impl <'a, A> Iterator for Ray<'a, A> {
-    type Item = &'a A;
+    type Item = (TableIdx, &'a A);
 
     fn next(&mut self) -> Option<Self::Item> {
 
-        self.cur = self.table.get(into_shape(self.coord));
+        let cur= self.table.get(into_shape(self.coord))?;
+
+        let retpos = self.coord;
 
         self.coord = shift(self.coord, self.direction);
 
-        self.cur
+        Some((retpos, cur))
 
 
     }
@@ -67,7 +68,6 @@ pub fn cast_ray<A>(table: &Array2<A>, origin: TableIdx, direction: TableDir) -> 
         table,
         coord: origin,
         direction,
-        cur : None
     }
 }
 
@@ -114,7 +114,7 @@ mod tests {
     #[case(TableIdx::new(0, 0), TableDir::new(1, 1), "AE")]
     #[case(TableIdx::new(0, 0), TableDir::new(1, 0), "ABC")]
     fn test_rays(rect_table: CharTable, #[case] origin: TableIdx, #[case] direction: TableDir, #[case] expected: &str) {
-        let ray: String = cast_ray(&rect_table, origin, direction).collect();
+        let ray: String = cast_ray(&rect_table, origin, direction).map(|(_, c)| *c).collect();
 
         assert_eq!(&ray, expected)
 

@@ -54,12 +54,12 @@ const X_CORNERS: [TableDir; 4] = [
 
 impl Day {
     fn is_xmas(&self, origin: TableIdx, dir: TableDir) -> bool {
-        let mut ray = cast_ray(&self.table, origin, dir).cloned().take(4);
+        let mut ray = cast_ray(&self.table, origin, dir).take(4);
 
         for c in XMAS.chars() {
             match ray.next() {
                 None => { return false; },
-                Some(v) if v != c => { return false; },
+                Some((_, v)) if *v != c => { return false; },
                 _ => {}
             }
 
