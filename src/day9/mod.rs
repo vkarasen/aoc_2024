@@ -10,7 +10,7 @@ impl AoC for Day {
 
         Ok(AoCResult {
             part_a: Some(parsed.part_a()),
-            part_b: None,
+            part_b: Some(parsed.part_b()),
         })
     }
 }
@@ -23,7 +23,10 @@ pub struct Day {
 
 impl Day {
     fn part_a(&self) -> usize {
-        self.fs.defrag().checksum()
+        self.fs.defrag_block().checksum()
+    }
+    fn part_b(&self) -> usize {
+        self.fs.defrag_all_files().checksum()
     }
 }
 
@@ -78,36 +81,97 @@ impl FileSystem {
         println!("data: {}, empty: {}, total: {}", data, empty, total);
     }
 
+    fn defrag_all_files(&self) -> Self {
+        let last_file_idx = self.entries.iter().rev().flat_map(|e| e.id).next().unwrap();
+        let mut ret = self.clone();
+        for i in (1..=last_file_idx).rev() {
+            ret = ret.defrag_file(i);
+        }
+        ret.info();
+        ret
+    }
 
-    fn defrag(&self) -> Self {
+    fn defrag_file(&self, id: usize) -> Self {
+        let mut it = self.entries.iter();
+        let mut tail = Vec::new();
+        let mut entries = Vec::new();
+
+        let copy_from: Entry = {
+            let mut ret = Entry::default();
+            while let Some(entry) = it.next_back() {
+                if entry.id == Some(id) {
+                    ret = *entry;
+                    break
+                } else {
+                    tail.push(*entry);
+                }
+            }
+            ret
+        };
+
+        let copy_to: Entry = {
+            let mut ret = Entry::default();
+            for entry in it.by_ref() {
+                if entry.id.is_none() && entry.size >= copy_from.size {
+                    ret = *entry;
+                    break
+                } else {
+                    entries.push(*entry);
+                }
+            }
+            ret
+        };
+
+        match (copy_from.size, copy_to.size) {
+            (0, _) => unreachable!(),
+            (_, 0) => {
+                // do nothing, just restore the clone
+                entries.push(copy_from);
+            },
+            (from_size, mut to_size) => {
+                let size = from_size.min(to_size);
+                entries.push(Entry { size, id : copy_from.id});
+                to_size -= size;
+                if to_size > 0 {
+                    entries.push(Entry { size: to_size, id : None});
+                }
+                tail.push(Entry{ size: from_size, id: None});
+                entries.extend(&mut it);
+            }
+        }
+
+        entries.extend(tail.iter().rev());
+        Self { entries }
+    }
+
+
+    fn defrag_block(&self) -> Self {
         let mut entries = Vec::new();
         let mut it = self.entries.iter();
         let mut copy_from = Entry::default();
         let mut copy_to = Entry::default();
         loop {
-            //get space to copy to, move entries en passant
-
-            if copy_to.size == 0 {
-                //println!("looking for new copy_to");
-                while let Some(e) = it.next() {
-                    if e.id.is_some() {
-                        entries.push(e.clone());
-                    } else {
-                        copy_to = e.clone();
-                        //println!("copy_to found: {:?}", &copy_to);
-                        break;
-                    }
-                }
-            }
-
             // find blocks that need copying, i.e have at least one empty block in between
 
             if copy_from.size == 0 {
                 //println!("looking for new copy_from");
                 while let Some(e) = it.next_back() {
                     if e.id.is_some() {
-                        copy_from = e.clone();
-                        //println!("copy_from found: {:?}", &copy_from);
+                        copy_from = *e;
+                        break;
+                    }
+                }
+            }
+
+            //get space to copy to, move entries en passant
+
+            if copy_to.size == 0 {
+                //println!("looking for new copy_to");
+                for e in it.by_ref() {
+                    if e.id.is_some() {
+                        entries.push(*e);
+                    } else {
+                        copy_to = *e;
                         break;
                     }
                 }
@@ -122,7 +186,6 @@ impl FileSystem {
                 (a, b) => {
                     let size = a.min(b);
                     let commit = Entry { size , id : copy_from.id };
-                    //println!("to: {}, from: {}, committing {:?}", a, b, &commit);
                     entries.push(commit);
                     copy_to.size -= size;
                     copy_from.size -= size;
@@ -172,7 +235,7 @@ impl std::convert::From<Vec<u32>> for FileSystem {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, Copy)]
 struct Entry {
     size: usize,
     id: Option<usize>,
@@ -272,6 +335,11 @@ mod tests {
     }
 
     #[rstest]
+    fn test_part_b(example_parsed: Day) {
+        assert_eq!(example_parsed.part_b(), 2858)
+    }
+
+    #[rstest]
     fn test_string_parsed(example_parsed: Day) {
         assert_eq!(
             format!("{}", example_parsed.fs),
@@ -280,10 +348,18 @@ mod tests {
     }
 
     #[rstest]
-    fn test_defrag(example_parsed: Day) {
+    fn test_defrag_block(example_parsed: Day) {
         assert_eq!(
-            format!("{}", example_parsed.fs.defrag()),
+            format!("{}", example_parsed.fs.defrag_block()),
             "0099811188827773336446555566"
+        )
+    }
+
+    #[rstest]
+    fn test_defrag_file(example_parsed: Day) {
+        assert_eq!(
+            format!("{}", example_parsed.fs.defrag_all_files()),
+            "00992111777.44.333....5555.6666.....8888.."
         )
     }
 }
