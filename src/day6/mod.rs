@@ -153,7 +153,7 @@ impl<'a> Iterator for GuardPath<'a> {
 
         let retval = self.guard;
 
-        if self.blocked() {
+        while self.blocked() {
             self.guard.turn();
         }
 
