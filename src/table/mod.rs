@@ -35,6 +35,10 @@ pub fn into_idx(shape: Ix2) -> TableIdx {
     }
 }
 
+pub fn from_pattern(p: (usize, usize)) -> TableIdx {
+    into_idx(Ix2(p.0, p.1))
+}
+
 pub fn shift(idx: TableIdx, step: TableDir) -> TableIdx {
     (idx.as_::<isize>() + step).as_()
 }
