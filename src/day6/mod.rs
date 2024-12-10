@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+use rayon::prelude::*;
+
 use anyhow::anyhow;
 
 use crate::table::{into_idx, into_shape, parse_char_table, shift, CharTable, TableDir, TableIdx};
@@ -68,8 +70,8 @@ impl Day {
         self.unique_guard_pos().count()
     }
 
-    fn all_paradox_boulders(&self) -> impl Iterator<Item = TableIdx> + '_ {
-        self.unique_guard_pos().filter(|dropped| {
+    fn all_paradox_boulders(&self) -> impl rayon::iter::ParallelIterator<Item = TableIdx> + '_ {
+        self.unique_guard_pos().par_bridge().filter(|dropped| {
             if let Some(day) = self.drop_boulder(*dropped) {
                 if day.is_stuck() {
                     return true;
