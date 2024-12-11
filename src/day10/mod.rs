@@ -1,18 +1,20 @@
 use crate::prelude::*;
 
-use std::collections::HashSet;
-
 use std::str::FromStr;
 
 use rayon::prelude::*;
 
-use crate::table::{
-    cast_ray, from_pattern, into_idx, shift, into_shape, parse_char_table, CharTable, TableDir, TableIdx,
-};
+use crate::table::{parse_char_table, shift, TableDir, TableIdx, from_pattern, into_shape};
 
-use ndarray::Array2;
+use petgraph::{algo, prelude::*};
 
-type HeightMap = Array2<u8>;
+use itertools::iproduct;
+
+use bimap::BiMap;
+
+type TrailGraph = DiGraph<(), ()>;
+
+type NodeMap = BiMap<NodeIndex, TableIdx>;
 
 impl AoC for Day {
     fn run(input: &str) -> anyhow::Result<AoCResult> {
@@ -20,57 +22,14 @@ impl AoC for Day {
 
         Ok(AoCResult {
             part_a: Some(parsed.part_a()),
-            part_b: None,
+            part_b: Some(parsed.part_b()),
         })
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Day {
-    table: HeightMap
-}
-
-impl Day {
-    fn get_all_trailheads(&self) -> impl ParallelIterator<Item = TableIdx> + '_ {
-        self.table.indexed_iter().par_bridge().filter_map(|(pattern, val)| {
-            if val == &0 {
-                return Some(from_pattern(pattern));
-            }
-            None
-        })
-    }
-
-    fn hike(&self, start: TableIdx) -> Hiker {
-        Hiker {
-            table: &self.table,
-            stack: [(start, 0)].into(),
-            visited: HashSet::new(),
-        }
-    }
-
-    fn trailscore(&self, start: TableIdx) -> usize {
-        self.hike(start).filter(|(_, height)| height == &9).count()
-    }
-
-    fn part_a(&self) -> usize {
-        self.get_all_trailheads().map(|start| self.trailscore(start)).sum()
-    }
-}
-
-impl FromStr for Day {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> anyhow::Result<Day> {
-        let table = (parse_char_table(s)?).map(|x| x.to_digit(10).unwrap() as u8);
-
-        Ok(Day { table })
-    }
-}
-
-struct Hiker<'a> {
-    table: &'a HeightMap,
-    stack: Vec<(TableIdx, u8)>,
-    visited: HashSet<TableIdx>,
+    trails: Vec<(TableIdx, TableIdx, usize)>
 }
 
 const ALL_CARD_DIRS: [TableDir; 4] = [
@@ -80,24 +39,72 @@ const ALL_CARD_DIRS: [TableDir; 4] = [
     TableDir::new(-1, 0),
 ];
 
-impl<'a> Iterator for Hiker<'a> {
-    type Item = (TableIdx, u8);
+impl Day {
+    fn part_a(&self) -> usize {
+        self.trails.len()
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let (curpos, curheight) = self.stack.pop()?;
+    fn part_b(&self) -> usize {
+        self.trails.iter().map(|x| x.2).sum()
+    }
+}
 
-        self.visited.insert(curpos);
+fn get_node_or_insert(pos: &TableIdx, graph: &mut TrailGraph, nodemap: &mut NodeMap) -> NodeIndex {
+    if let Some(n) = nodemap.get_by_right(pos) {
+        *n
+    } else {
+        let n = graph.add_node(());
+        nodemap.insert(n, *pos);
+        n
+    }
+}
 
-        for dir in ALL_CARD_DIRS {
-            let candpos = shift(curpos, dir);
-            if let Some(candheight) = self.table.get(into_shape(candpos)) {
-                if ! self.visited.contains(&candpos) && *candheight == curheight + 1 {
-                    self.stack.push((candpos, *candheight));
+
+impl FromStr for Day {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Day> {
+        let table = (parse_char_table(s)?).map(|x| x.to_digit(10).unwrap() as u8);
+        let mut nodemap = BiMap::new();
+        let mut graph = TrailGraph::new();
+        let mut trailheads = Vec::new();
+        let mut peaks = Vec::new();
+
+        for (x, height) in table.indexed_iter() {
+            let curpos = from_pattern(x);
+            let curnode = get_node_or_insert(&curpos, &mut graph, &mut nodemap);
+            nodemap.insert(curnode, curpos);
+            if height == &0 {
+                trailheads.push(curnode);
+            } else if height == &9 {
+                peaks.push(curnode);
+            }
+
+            for dir in &ALL_CARD_DIRS {
+                let neighborpos = shift(curpos, *dir);
+                if let Some(neighborheight) = table.get(into_shape(neighborpos)) {
+                    if height + 1 == *neighborheight {
+                        let neighbornode = get_node_or_insert(&neighborpos, &mut graph, &mut nodemap);
+                        graph.add_edge(curnode, neighbornode, ());
+                    }
                 }
             }
         }
 
-        Some((curpos, curheight))
+        let trails = iproduct!(trailheads.iter(), peaks.iter()).par_bridge().filter_map(|(head, peak)| {
+
+            let ways = algo::all_simple_paths::<Vec<_>,_>(&graph, *head, *peak, 1, None).collect::<Vec<_>>();
+
+            if ways.is_empty() {
+                None
+            } else {
+                Some((*nodemap.get_by_left(head).unwrap(), *nodemap.get_by_left(peak).unwrap(), ways.len()))
+            }
+        }).collect();
+
+        Ok(Day {
+            trails,
+        })
     }
 }
 
@@ -105,8 +112,6 @@ impl<'a> Iterator for Hiker<'a> {
 mod tests {
     use super::*;
     use rstest::*;
-
-    use ndarray::arr2;
 
     #[fixture]
     fn small_example() -> &'static str {
@@ -119,25 +124,31 @@ mod tests {
     }
 
     #[fixture]
-    fn small_example_parsed() -> Day {
-        Day {
-            table: arr2(&[
-                [0, 1, 2, 3],
-                [1, 2, 3, 4],
-                [8, 7, 6, 5],
-                [9, 8, 7, 6],
-            ]),
-        }
+    fn larger_example() -> &'static str {
+        "\
+        89010123\n\
+        78121874\n\
+        87430965\n\
+        96549874\n\
+        45678903\n\
+        32019012\n\
+        01329801\n\
+        10456732\n\
+        "
     }
 
     #[rstest]
-    fn parse_small_example_a(small_example: &'static str, small_example_parsed: Day) {
-        let result: Day = small_example.parse().unwrap();
-        assert_eq!(result, small_example_parsed)
+    fn test_small_example_a(small_example: &'static str) {
+        assert_eq!(small_example.parse::<Day>().unwrap().part_a(), 1);
     }
 
     #[rstest]
-    fn test_small_example_a(small_example_parsed: Day) {
-        assert_eq!(small_example_parsed.part_a(), 1);
+    fn test_larger_example_a(larger_example: &'static str) {
+        assert_eq!(larger_example.parse::<Day>().unwrap().part_a(), 36);
+    }
+
+    #[rstest]
+    fn test_larger_example_b(larger_example: &'static str) {
+        assert_eq!(larger_example.parse::<Day>().unwrap().part_b(), 81);
     }
 }
