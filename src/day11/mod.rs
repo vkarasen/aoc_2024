@@ -2,9 +2,13 @@ use crate::prelude::*;
 
 use std::str::FromStr;
 
+use std::collections::HashMap;
+
+type StoneMap = HashMap<usize, usize>;
+
 use nom::{
     bytes::complete::tag,
-    character::complete::{digit1, newline},
+    character::complete::newline,
     combinator::map_res,
     error::Error,
     multi::separated_list1,
@@ -25,16 +29,22 @@ impl AoC for Day {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Day {
-    stone_row: StoneRow,
+    stones: StoneMap
 }
 
 impl Day {
     fn part_a(&self) -> usize {
-        self.stone_row.blink_iter().nth(24).unwrap().lengths.len()
+        self.blink().nth(24).unwrap()
     }
 
     fn part_b(&self) -> usize {
-        0
+        self.blink().nth(74).unwrap()
+    }
+
+    fn blink(&self) -> StoneIter {
+        StoneIter {
+            stones : self.stones.clone()
+        }
     }
 }
 
@@ -60,90 +70,55 @@ impl FromStr for Day {
 
 fn parse_day(input: &str) -> IResult<&str, Day> {
     map_res(
-        terminated(separated_list1(tag(" "), digit1), newline),
-        |v: Vec<&str>| -> anyhow::Result<Day> {
-            let mut row = String::new();
-            let mut lengths = Vec::new();
+        terminated(separated_list1(tag(" "), parse_usize), newline),
+        |v: Vec<usize>| -> anyhow::Result<Day> {
 
-            for x in v.into_iter() {
-                let trimmed = x.trim_start_matches('0');
-                lengths.push(trimmed.len());
-                row.push_str(trimmed);
+            let mut stones = HashMap::new();
+
+            for stone in v.into_iter() {
+                stones.entry(stone).and_modify(|s| *s += 1).or_insert(1);
             }
 
             Ok(Day {
-                stone_row: StoneRow { row, lengths },
+                stones
             })
         },
     )(input)
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-struct StoneRow {
-    row: String,
-    lengths: Vec<usize>,
+
+
+struct StoneIter {
+    stones: StoneMap
 }
 
-impl StoneRow {
-    fn blink(&self) -> Self {
-        let mut retval = Self::default();
-        let mut idx = 0;
-        for len in self.lengths.iter() {
-            if *len == 0 {
-                retval.row.push('1');
-                retval.lengths.push(1);
-            } else if *len % 2 == 0 {
-                retval.row.push_str(&self.row[idx..idx + len / 2]);
-                idx += *len / 2;
-                retval.lengths.push(*len / 2);
-
-                let right = self.row[idx..idx + len / 2].trim_start_matches('0');
-                retval.row.push_str(right);
-                retval.lengths.push(right.len());
-                idx += *len / 2;
+impl StoneIter {
+    fn blink(&self) -> StoneMap {
+        let mut retval = HashMap::new();
+        for (stone, number) in self.stones.iter() {
+            let mut interr = |stone: usize| {retval.entry(stone).and_modify(|s| *s += *number).or_insert(*number); };
+            let stonestr = format!("{}", &stone);
+            if *stone == 0 {
+                interr(1);
+            } else if stonestr.len() % 2 == 0 {
+                interr(stonestr[..stonestr.len()/2].parse().unwrap());
+                interr(stonestr[stonestr.len()/2..].parse().unwrap());
             } else {
-                let num = self.row[idx..idx + len].parse::<u64>().unwrap() * 2024;
-                let numstr = format!("{}", num);
-                retval.row.push_str(&numstr);
-                retval.lengths.push(numstr.len());
-
-                idx += *len;
+                interr(stone*2024);
             }
         }
         retval
-    }
 
-    fn blink_iter(&self) -> impl Iterator<Item = Self> {
-        StoneRowIter { row: self.clone() }
     }
 }
 
-impl std::fmt::Display for StoneRow {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut ret = String::new();
-        let mut idx = 0;
-        for len in self.lengths.iter() {
-            ret.push_str(&self.row[idx..idx+len]);
-            ret.push(' ');
-            idx += len;
-        }
-        write!(f, "{}", &ret)
-    }
-
-}
-
-struct StoneRowIter {
-    row: StoneRow,
-}
-
-impl std::iter::Iterator for StoneRowIter {
-    type Item = StoneRow;
+impl std::iter::Iterator for StoneIter {
+    type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.row = self.row.blink();
-        //dbg!(&self.row);
+        self.stones = self.blink();
 
-        Some(self.row.clone())
+        Some(self.stones.values().sum())
     }
 }
 
@@ -162,10 +137,7 @@ mod tests {
     #[fixture]
     fn example_parsed() -> Day {
         Day {
-            stone_row: StoneRow {
-                row: "12517".into(),
-                lengths: [3, 2].into(),
-            },
+            stones : [(17, 1), (125, 1)].into()
         }
     }
 
