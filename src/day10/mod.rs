@@ -10,11 +10,10 @@ use petgraph::{algo, prelude::*};
 
 use itertools::iproduct;
 
-use bimap::BiMap;
-
 type TrailGraph = DiGraph<(), ()>;
 
-type NodeMap = BiMap<NodeIndex, TableIdx>;
+use crate::graph::{NodeMap, get_node_or_insert};
+
 
 impl AoC for Day {
     fn run(input: &str) -> anyhow::Result<AoCResult> {
@@ -49,23 +48,13 @@ impl Day {
     }
 }
 
-fn get_node_or_insert(pos: &TableIdx, graph: &mut TrailGraph, nodemap: &mut NodeMap) -> NodeIndex {
-    if let Some(n) = nodemap.get_by_right(pos) {
-        *n
-    } else {
-        let n = graph.add_node(());
-        nodemap.insert(n, *pos);
-        n
-    }
-}
-
 
 impl FromStr for Day {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> anyhow::Result<Day> {
         let table = (parse_char_table(s)?).map(|x| x.to_digit(10).unwrap() as u8);
-        let mut nodemap = BiMap::new();
+        let mut nodemap = NodeMap::new();
         let mut graph = TrailGraph::new();
         let mut trailheads = Vec::new();
         let mut peaks = Vec::new();

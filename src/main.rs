@@ -29,6 +29,7 @@ mod prelude {
 use crate::prelude::AoC;
 
 mod table;
+mod graph;
 mod day1;
 mod day2;
 mod day3;
@@ -40,6 +41,7 @@ mod day8;
 mod day9;
 mod day10;
 mod day11;
+mod day12;
 
 #[derive(ValueEnum, Clone, Debug, Display)]
 enum Days {
@@ -54,6 +56,7 @@ enum Days {
     Day9,
     Day10,
     Day11,
+    Day12,
 }
 
 fn run_day(day: Days, input: &str) -> Result<()> {
@@ -69,6 +72,7 @@ fn run_day(day: Days, input: &str) -> Result<()> {
         Days::Day9 => crate::day9::Day::run(input),
         Days::Day10 => crate::day10::Day::run(input),
         Days::Day11 => crate::day11::Day::run(input),
+        Days::Day12 => crate::day12::Day::run(input),
     }?;
 
     if let Some(val) = result.part_a {
