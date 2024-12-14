@@ -1,20 +1,22 @@
 use clap::{Parser, ValueEnum};
 use strum_macros::Display;
 
-use std::path::PathBuf;
-use std::fs::File;
 use anyhow::Result;
+use std::fs::File;
+use std::path::PathBuf;
 
 mod prelude {
     use nom::{
+        bytes::complete::tag,
         character::complete::digit1,
-        combinator::map_res,
+        combinator::{map_res, opt, recognize},
+        sequence::preceded,
         IResult,
     };
 
     pub struct AoCResult {
-        pub part_a : Option<usize>,
-        pub part_b : Option<usize>
+        pub part_a: Option<usize>,
+        pub part_b: Option<usize>,
     }
 
     pub trait AoC {
@@ -24,13 +26,20 @@ mod prelude {
     pub fn parse_usize(input: &str) -> IResult<&str, usize> {
         map_res(digit1, str::parse)(input)
     }
+
+    pub fn parse_isize(input: &str) -> IResult<&str, isize> {
+        map_res(recognize(preceded(opt(tag("-")), digit1)), str::parse)(input)
+    }
 }
 
 use crate::prelude::AoC;
 
-mod table;
-mod graph;
 mod day1;
+mod day10;
+mod day11;
+mod day12;
+mod day13;
+mod day14;
 mod day2;
 mod day3;
 mod day4;
@@ -39,10 +48,8 @@ mod day6;
 mod day7;
 mod day8;
 mod day9;
-mod day10;
-mod day11;
-mod day12;
-mod day13;
+mod graph;
+mod table;
 
 #[derive(ValueEnum, Clone, Debug, Display)]
 enum Days {
@@ -59,6 +66,7 @@ enum Days {
     Day11,
     Day12,
     Day13,
+    Day14,
 }
 
 fn run_day(day: Days, input: &str) -> Result<()> {
@@ -76,6 +84,7 @@ fn run_day(day: Days, input: &str) -> Result<()> {
         Days::Day11 => crate::day11::Day::run(input),
         Days::Day12 => crate::day12::Day::run(input),
         Days::Day13 => crate::day13::Day::run(input),
+        Days::Day14 => crate::day14::Day::run(input),
     }?;
 
     if let Some(val) = result.part_a {
@@ -87,7 +96,6 @@ fn run_day(day: Days, input: &str) -> Result<()> {
     }
 
     Ok(())
-
 }
 
 #[derive(Parser, Debug)]
@@ -97,7 +105,7 @@ struct Args {
     day: Days,
 
     #[arg(short, long, default_value = "./input/")]
-    input: PathBuf
+    input: PathBuf,
 }
 
 fn main() -> Result<()> {
@@ -105,7 +113,9 @@ fn main() -> Result<()> {
 
     let inputfilepath = {
         if args.input.is_dir() {
-            args.input.join(args.day.to_string().to_lowercase()).with_extension("txt")
+            args.input
+                .join(args.day.to_string().to_lowercase())
+                .with_extension("txt")
         } else {
             args.input
         }
@@ -116,5 +126,4 @@ fn main() -> Result<()> {
     let inputstr = std::io::read_to_string(&inputfile)?;
 
     run_day(args.day, &inputstr)
-
 }
