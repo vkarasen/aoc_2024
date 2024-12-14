@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 use std::str::FromStr;
 
-use crate::table::{TableDir, TableIdx};
+use crate::table::{TableDir, TableIdx, PPCharTable, CharTable, into_shape};
 
 use nom::{
     bytes::complete::tag,
@@ -20,7 +20,7 @@ impl AoC for Day {
 
         Ok(AoCResult {
             part_a: Some(parsed.part_a()),
-            part_b: None,
+            part_b: Some(parsed.part_b()),
         })
     }
 }
@@ -33,14 +33,34 @@ pub struct Day {
 impl Day {
     fn bathroom(&self, width: usize, height: usize) -> Bathroom {
         Bathroom {
-            robots: &self.robots,
+            robots: self.robots.clone(),
             width,
             height,
         }
     }
 
     fn part_a(&self) -> usize {
-        self.bathroom(101, 103).safety_factor(100)
+        let mut bathroom = self.bathroom(101, 103);
+        bathroom.walk(100);
+        bathroom.quadrants().safety_factor()
+    }
+
+    fn part_b(&self) -> usize {
+        let mut bathroom = self.bathroom(101, 103);
+        let mut min_safety_factor = usize::MAX;
+        let mut ret = 0;
+        let mut tree = String::new();
+        for cur in 1..bathroom.width*bathroom.height {
+            bathroom.walk(1);
+            let safety_factor = bathroom.quadrants().safety_factor();
+            if safety_factor < min_safety_factor {
+                min_safety_factor = safety_factor;
+                ret = cur;
+                tree = format!("{}", &bathroom);
+            }
+        }
+        println!("{}", &tree);
+        ret
     }
 }
 
@@ -103,51 +123,94 @@ struct Robot {
     v: TableDir,
 }
 
-struct Bathroom<'a> {
-    robots: &'a Vec<Robot>,
+struct Bathroom {
+    robots: Vec<Robot>,
     width: usize,
     height: usize,
 }
 
-impl<'a> Bathroom<'a> {
-    fn walk(&self, duration: usize) -> impl Iterator<Item = TableIdx> + '_ {
+impl std::fmt::Display for Bathroom {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut table = CharTable::from_shape_simple_fn((self.height, self.width), || '.');
+
+        for robot in &self.robots {
+            let elem = table.get_mut(into_shape(robot.p)).unwrap();
+            match elem {
+                '.' => *elem = '1',
+                ref val if val.is_ascii_hexdigit() => *elem = char::from_digit(val.to_digit(16).unwrap() + 1, 16).unwrap(),
+                _ => unreachable!()
+            }
+        }
+
+        let center = self.center();
+
+        for y in 0..self.height {
+            *table.get_mut(into_shape(TableIdx::new(center.x, y))).unwrap() = ' ';
+        }
+
+        for x in 0..self.width {
+            *table.get_mut(into_shape(TableIdx::new(x, center.y))).unwrap() = ' ';
+        }
+
+        write!(f, "{:?}", PPCharTable::from(&table))
+    }
+}
+
+impl Bathroom {
+    fn walk(&mut self, duration: isize) {
         self.robots
-            .iter()
-            .map(move |r| r.walk(self.width, self.height, duration))
+            .iter_mut()
+            .for_each(|r| r.walk(self.width, self.height, duration));
     }
 
-    fn quadrant(&self, pos: &TableIdx) -> Option<usize> {
+    fn center(&self) -> TableIdx {
+        TableIdx::new((self.width - 1) / 2, (self.height - 1) / 2)
+    }
+
+    fn quadrant_idx(&self, pos: &TableIdx) -> Option<usize> {
         use std::cmp::Ordering::*;
 
-        match (((self.width - 1) / 2).cmp(&pos.x), ((self.height - 1) / 2).cmp(&pos.y)) {
-            (Less, Less) => Some(0),
-            (Less, Greater) => Some(1),
+        let center = self.center();
+
+        match (center.x.cmp(&pos.x), center.y.cmp(&pos.y)) {
+            (Less, Less) => Some(3),
             (Greater, Less) => Some(2),
-            (Greater, Greater) => Some(3),
+            (Less, Greater) => Some(1),
+            (Greater, Greater) => Some(0),
             (_, _) => None
         }
     }
 
-    fn safety_factor(&self, duration: usize) -> usize {
-        let mut quadrants = [0usize; 4];
+    fn quadrants(&self) -> Quadrants {
+        let mut quadrants = Quadrants::default();
 
-        for rpos in self.walk(duration) {
-            if let Some(idx) = self.quadrant(&rpos) {
-                quadrants[idx] += 1;
+        for robot in &self.robots {
+            if let Some(idx) = self.quadrant_idx(&robot.p) {
+                quadrants.0[idx] += 1;
             }
         }
 
-        quadrants.iter().product()
+        quadrants
     }
 }
 
 impl Robot {
-    fn walk(&self, width: usize, height: usize, duration: usize) -> TableIdx {
+    fn walk(&mut self, width: usize, height: usize, duration: isize) {
         let beeg = self.p.as_::<i64>() + duration as i64 * self.v.as_::<i64>();
-        TableIdx::new(beeg.x.rem_euclid(width.try_into().unwrap()) as usize, beeg.y.rem_euclid(height.try_into().unwrap()) as usize)
+        self.p = TableIdx::new(beeg.x.rem_euclid(width.try_into().unwrap()) as usize, beeg.y.rem_euclid(height.try_into().unwrap()) as usize);
 
     }
 }
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
+struct Quadrants([usize; 4]);
+
+impl Quadrants {
+    fn safety_factor(&self) -> usize {
+        self.0.iter().product()
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -237,6 +300,9 @@ mod tests {
 
     #[rstest]
     fn test_bathroom(example_parsed: Day) {
-        assert_eq!(example_parsed.bathroom(11, 7).safety_factor(100), 12)
+        let mut bathroom = example_parsed.bathroom(11, 7);
+        bathroom.walk(100);
+        assert_eq!(bathroom.quadrants().safety_factor(), 12)
+
     }
 }
