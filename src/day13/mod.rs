@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+use rayon::prelude::*;
+
 use std::str::FromStr;
 
 use crate::table::TableIdx;
@@ -23,7 +25,7 @@ impl AoC for Day {
 
         Ok(AoCResult {
             part_a: Some(parsed.part_a()),
-            part_b: None,
+            part_b: Some(parsed.part_b()),
         })
     }
 }
@@ -35,7 +37,23 @@ pub struct Day {
 
 impl Day {
     fn part_a(&self) -> usize {
-        self.machines.iter().flat_map(|m| m.solve()).sum()
+        self.machines.par_iter().flat_map(|m| {
+            let solution = m.solve()?;
+            if solution.x > MAX_BUTTON_PRESSES || solution.y > MAX_BUTTON_PRESSES {
+                None
+            } else {
+                Some(cost(solution))
+            }
+        }).sum()
+    }
+
+    fn part_b(&self) -> usize {
+        self.machines.par_iter().flat_map(|m| {
+            let mut lorge = m.clone();
+            lorge.prize += 10000000000000;
+            let solution = lorge.solve()?;
+            Some(cost(solution))
+        }).sum()
     }
 }
 
@@ -66,11 +84,13 @@ fn parse_day(input: &str) -> IResult<&str, Day> {
     )(input)
 }
 
-const COST: TableIdx = TableIdx::new(3, 1);
+fn cost(solution: TableIdx) -> usize {
+    solution.x * 3 + solution.y
+}
 
 const MAX_BUTTON_PRESSES : usize = 100;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Machine {
     a: TableIdx,
     b: TableIdx,
@@ -78,18 +98,15 @@ struct Machine {
 }
 
 impl Machine {
-    fn solve(&self) -> Option<usize> {
+    fn solve(&self) -> Option<TableIdx> {
         let a: Array2<f64> = array![[self.a.x as f64, self.b.x as f64] , [self.a.y as f64, self.b.y as f64]];
         let b: Array1<f64> = array![self.prize.x as f64, self.prize.y as f64];
         let x: Array1<usize> = a.solve_into(b).ok()?.map(|x| x.round() as usize);
         let solution = TableIdx::new(x[0], x[1]);
-        if solution.x > MAX_BUTTON_PRESSES || solution.y > MAX_BUTTON_PRESSES {
-            return None;
-        }
         if solution.x * self.a.x + solution.y * self.b.x != self.prize.x || solution.x * self.a.y + solution.y * self.b.y != self.prize.y {
             return None;
         }
-        Some(x[0]* COST.x + x[1])
+        Some(solution)
     }
 }
 
