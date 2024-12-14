@@ -16,7 +16,10 @@
         pkgs = import nixpkgs {inherit system;};
         naersk-lib = pkgs.callPackage naersk {};
       in rec {
-        defaultPackage = naersk-lib.buildPackage ./.;
+        defaultPackage = naersk-lib.buildPackage {
+					src = ./.;
+					buildInputs = with pkgs; [pkg-config openssl gfortran.cc lapack-reference];
+					};
         setupDayPkg = pkgs.writeShellApplication rec {
           name = "setup_day";
           runtimeInputs = with pkgs; [aoc-cli git];
@@ -51,7 +54,7 @@
         };
         devShell = with pkgs;
           mkShell {
-            buildInputs = [cargo rustc rustfmt pre-commit rustPackages.clippy aoc-cli setupDayPkg];
+            buildInputs = [cargo rustc rustfmt pre-commit rustPackages.clippy aoc-cli setupDayPkg pkg-config lapack-reference openssl gfortran.cc];
             RUST_SRC_PATH = rustPlatform.rustLibSrc;
           };
       }
