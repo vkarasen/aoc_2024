@@ -40,6 +40,7 @@ mod day11;
 mod day12;
 mod day13;
 mod day14;
+mod day15;
 mod day2;
 mod day3;
 mod day4;
@@ -67,6 +68,7 @@ enum Days {
     Day12,
     Day13,
     Day14,
+    Day15,
 }
 
 fn run_day(day: Days, input: &str) -> Result<()> {
@@ -85,6 +87,7 @@ fn run_day(day: Days, input: &str) -> Result<()> {
         Days::Day12 => crate::day12::Day::run(input),
         Days::Day13 => crate::day13::Day::run(input),
         Days::Day14 => crate::day14::Day::run(input),
+        Days::Day15 => crate::day15::Day::run(input),
     }?;
 
     if let Some(val) = result.part_a {

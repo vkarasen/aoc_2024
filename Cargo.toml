@@ -9,6 +9,7 @@ bimap = "0.6.3"
 clap = { version = "4.5.21", features = ["derive"] }
 indicatif = "0.17.9"
 itertools = "0.13.0"
+lazy_static = "1.5.0"
 ndarray = "0.15.6"
 ndarray-linalg = { version = "0.16.0", features = ["netlib-system"] }
 nom = "7.1.3"

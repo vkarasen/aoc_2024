@@ -75,6 +75,7 @@ dependencies = [
  "clap",
  "indicatif",
  "itertools",
+ "lazy_static",
  "ndarray",
  "ndarray-linalg",
  "nom",
