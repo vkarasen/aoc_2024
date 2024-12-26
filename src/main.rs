@@ -41,6 +41,7 @@ mod day12;
 mod day13;
 mod day14;
 mod day15;
+mod day16;
 mod day2;
 mod day3;
 mod day4;
@@ -49,6 +50,7 @@ mod day6;
 mod day7;
 mod day8;
 mod day9;
+mod day24;
 mod graph;
 mod table;
 
@@ -69,6 +71,8 @@ enum Days {
     Day13,
     Day14,
     Day15,
+    Day16,
+    Day24,
 }
 
 fn run_day(day: Days, input: &str) -> Result<()> {
@@ -88,6 +92,8 @@ fn run_day(day: Days, input: &str) -> Result<()> {
         Days::Day13 => crate::day13::Day::run(input),
         Days::Day14 => crate::day14::Day::run(input),
         Days::Day15 => crate::day15::Day::run(input),
+        Days::Day16 => crate::day16::Day::run(input),
+        Days::Day24 => crate::day24::Day::run(input),
     }?;
 
     if let Some(val) = result.part_a {
